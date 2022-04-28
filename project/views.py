@@ -1,5 +1,6 @@
+from ftplib import error_temp
 from functools import partial
-from os import stat
+from telnetlib import STATUS
 from turtle import update
 from django.shortcuts import render
 from django.contrib.auth import get_user_model
@@ -69,15 +70,12 @@ def create_team(request, *args, **kwargs):
                         team_member.designation = 'team_member'
                         team_member.save()
                         team.team_members.add(team_member)
-                        return Response({"Success":"Team Created Successfully!",
-                                        "team": {
-                                            "id": team.id,
-                                            "name": team.name
-                                        }}
-                                        , status=status.HTTP_201_CREATED)
+                        
                     else:
                         bad_request = True
                         error_message = f'no user with email {member_email} present in database'
+                
+                    
                         
         else:
             
@@ -90,7 +88,7 @@ def create_team(request, *args, **kwargs):
                             status=status.HTTP_400_BAD_REQUEST)
      
     else:
-        return Response({"error": "Onlu users can create teams"})       
+        return Response({"error": "Only users can create teams"})       
                 
         
     
@@ -101,25 +99,60 @@ class TaskViewset(ModelViewSet):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
     
-    http_method_names = ['post', 'put', 'patch']
+   #http_method_names = ['post', 'put', 'patch']
     
     
     def create(self, request, *args, **kwargs):
         data = request.data
-        print(request.user.email)
-        
+        bad_request = False
+        error_message = ''
         user_email = request.user.email
         user = User.objects.select_related('role').get(email=user_email)
         print(user.role)
         if user.role.designation == 'user':
-
-            serializer = self.get_serializer(data=data)
-            serializer.is_valid(raise_exception=True)
-            self.perform_create(serializer)
-            return Response(serializer.data,
-                        status = status.HTTP_201_CREATED)
+            name = data.get('name')
+            description = data.get('description')
+            task_status = data.get('status')
+            team_id = data.get('team')
+           
+            
+            try:
+                task_status = State.objects.get(status=task_status)
+                team = Team.objects.get(id=team_id)
+                task, created = Task.objects.get_or_create(name=name, status=task_status, team=team, description=description)
+            except State.DoesNotExist:
+                bad_request = True
+                error_message = 'Invalid status provided'
+            except Team.DoesNotExist:
+                bad_request = True
+                error_message = 'No Such team'
+            except IntegrityError:
+                bad_request = True
+                error_message = 'Task already exists'
+            except Task.MultipleObjectsReturned:
+                bad_request = True
+                error_message = 'Multiple such tasks already exist'
+            else:
+                if created:
+                    task_data = {
+                        "id": task.id,
+                        "name": task.name,
+                        "status": task.status.status,
+                        "team": task.team.name,
+                        "description": task.description
+                    }
+                    return Response({"Success": "Task created successfully"},
+                                    status=status.HTTP_201_CREATED)
+                
+            if bad_request:
+                return Response({"error": error_message},
+                                status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({"error": "This Task Already exists"})
         else:
-            return Response({"error": "Only users can create tasks!"})
+            return Response({"error": "Only users can create tasks"},
+                            status=status.HTTP_400_BAD_REQUEST)
+                
         
     def update(self, request, *args, **kwargs):
         """ This method is only accessible by team leads and users"""
@@ -162,5 +195,9 @@ class TaskViewset(ModelViewSet):
                     "name": task.team.name
                 }
             })
+            
+    
+
+        
     
     
