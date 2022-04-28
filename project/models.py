@@ -27,6 +27,7 @@ class Task(models.Model):
     name =              models.CharField(max_length=250)
     team =              models.ForeignKey(Team, null = True, on_delete=models.SET_NULL)
     status =            models.ForeignKey(State, default='assigned', null=True, on_delete=models.SET_NULL)
+    description =       models.TextField()
     started_at =        models.DateTimeField(null=True)
     completed_at =      models.DateTimeField(null=True)
     

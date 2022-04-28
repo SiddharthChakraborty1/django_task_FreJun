@@ -24,7 +24,7 @@ def check_user(email: str):
 
 @api_view(['POST'])
 def create_team(request, *args, **kwargs):
-    """ Creates a team, for team lead and members, email is required"""
+    """ Creates a team, for team lead and members, email is required """
 
     data = request.data
     name = data.get('name')
