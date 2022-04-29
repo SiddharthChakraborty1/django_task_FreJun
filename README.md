@@ -1,15 +1,21 @@
 # django_task_FreJun
 
-## Startup:
+## SetUp
 <ol> 
   <li>  Install the requirements.txt </li>
   <li> run the management commands initiate_roles and initiate_status after making migrations to make sure
     there is valid data for roles and status in the database </li>
   
  </ol>
- 
-NOTE: All models are created as per the ORM guidelines given in the pdf <br>
-NOTE: Two extra models, namely role and status have been created to keep track of the user roles and task status
+ <br>
+
+NOTE: FreJun_task is the name of the project <br>
+NOTE: resource is the name of app that handles custom user model and it's serializers <br>
+NOTE: project is the name of app that handles all the APIs mentioned in the task <br>
+NOTE: All required models are created as per the ORM guidelines given in the pdf <br>
+NOTE: Two extra models, namely Role and State have been created to keep track of the user roles and task status <br>
+NOTE: .env file is not pushed to repo <br>
+NOTE: migrations/ directory is not pushed to repo <br>
  
 ## Requirements
 <ol>
