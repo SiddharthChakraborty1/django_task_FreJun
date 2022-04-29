@@ -13,6 +13,7 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from project.models import Task, Team, State
 from project.serializers import TaskSerializer
+from project.tasks import send_email_to_team_lead_task
 
 # Create your views here.
 
@@ -141,6 +142,9 @@ class TaskViewset(ModelViewSet):
                         "team": task.team.name,
                         "description": task.description
                     }
+                    send_email_to_team_lead_task.delay(
+                       task.team.team_lead.name, task.team.team_lead.email, task.description
+                    )
                     return Response({"Success": "Task created successfully"},
                                     status=status.HTTP_201_CREATED)
                 
