@@ -1,19 +1,21 @@
 from ftplib import error_temp
 from functools import partial
+from os import stat
 from telnetlib import STATUS
 from turtle import update
 from django.shortcuts import render
 from django.contrib.auth import get_user_model
 from django.db.utils import IntegrityError
 from jsonschema import ValidationError
+from requests import post
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from project.models import Task, Team, State
-from project.serializers import TaskSerializer
-from project.tasks import send_email_to_team_lead_task
+from project.serializers import TaskSerializerReadOnly, TaskSerializerWriteOnly
+
 
 # Create your views here.
 
@@ -98,64 +100,49 @@ class TaskViewset(ModelViewSet):
     permission_classes = (IsAuthenticated,)
     
     queryset = Task.objects.all()
-    serializer_class = TaskSerializer
+    serializer_class = TaskSerializerReadOnly
     
-   #http_method_names = ['post', 'put', 'patch']
-    
+    def get_serializer_class(self):
+        print('printing action')
+        print(self.action)
+        if self.action in ['create', 'update', 'partial_update']:
+            print('write_only')
+            return TaskSerializerWriteOnly
+        else:
+            print('read_only')
+            return TaskSerializerReadOnly
     
     def create(self, request, *args, **kwargs):
         data = request.data
-        bad_request = False
-        error_message = ''
-        user_email = request.user.email
-        user = User.objects.select_related('role').get(email=user_email)
-        print(user.role)
-        if user.role.designation == 'user':
-            name = data.get('name')
-            description = data.get('description')
-            task_status = data.get('status')
-            team_id = data.get('team')
-           
-            
+        many = isinstance(data,list)
+        request_user_email = request.user.email
+        request_user = User.objects.select_related('role').get(email=request_user_email)
+        user_role = request_user.role.designation
+        if user_role == 'user':
+            data = request.data
+            serializer = self.get_serializer_class()
+            state = data.get('status')
             try:
-                task_status = State.objects.get(status=task_status)
-                team = Team.objects.get(id=team_id)
-                task, created = Task.objects.get_or_create(name=name, status=task_status, team=team, description=description)
-            except State.DoesNotExist:
-                bad_request = True
-                error_message = 'Invalid status provided'
-            except Team.DoesNotExist:
-                bad_request = True
-                error_message = 'No Such team'
-            except IntegrityError:
-                bad_request = True
-                error_message = 'Task already exists'
-            except Task.MultipleObjectsReturned:
-                bad_request = True
-                error_message = 'Multiple such tasks already exist'
-            else:
-                if created:
-                    task_data = {
-                        "id": task.id,
-                        "name": task.name,
-                        "status": task.status.status,
-                        "team": task.team.name,
-                        "description": task.description
-                    }
-                    send_email_to_team_lead_task.delay(
-                       task.team.team_lead.name, task.team.team_lead.email, task.description
-                    )
-                    return Response({"Success": "Task created successfully"},
-                                    status=status.HTTP_201_CREATED)
-                
-            if bad_request:
-                return Response({"error": error_message},
-                                status=status.HTTP_400_BAD_REQUEST)
-            else:
-                return Response({"error": "This Task Already exists"})
+                state = State.objects.get(status=state)
+            except:
+                return Response({"error": "invalid status"}, status=status.HTTP_400_BAD_REQUEST)
+            data['status'] = state.id
+            serializer = serializer(data=data, many=many)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            print('printing serializer data')
+            print(serializer.data)
+            return Response(
+                serializer.data,
+                status=status.HTTP_201_CREATED,
+                headers=headers
+            )
         else:
-            return Response({"error": "Only users can create tasks"},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                "error": "Only users can create a task"
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
                 
         
     def update(self, request, *args, **kwargs):
@@ -170,36 +157,44 @@ class TaskViewset(ModelViewSet):
         ## act accordingly with team lead and team member permissions
         
         if user_role in ['team_lead', 'user']:
+            state = request.data.get('status')
+            try:
+                state = State.objects.get(status=state)
+            except:
+                return Response({"error": "invalid status"}, status=status.HTTP_400_BAD_REQUEST)
+            state = state.id
+            request.data["status"] = state
             return super().update(request,*args, **kwargs)
                 
         else:
             return Response({"error": "Only team leads or users can update tasks through put method"})
         
     def partial_update(self, request, *args, **kwargs):
+        
+        
+        serializer = self.get_serializer_class()
         user_email = request.user.email
         user = User.objects.select_related('role').get(email = user_email)
         user_role = user.role.designation
         data = request.data
-        status = data.get('status')
-        task_id = kwargs.get('pk')
+        instance = self.get_object()
+        state = data.get('status')
         try:
-            status = State.objects.get(status = status)
-        except State.DoesNotExist:
-            return Response({"error": "Invalid status provided"})
-        else:
-            task = Task.objects.select_related('status', 'team').get(id=task_id)
-            task.status = status
-            task.save()
-            return Response({
-                "name": task.name,
-                "description": task.description,
-                "id": task.id,
-                "status": task.status.status,
-                "team": {
-                    "name": task.team.name
-                }
-            })
-            
+            state = State.objects.get(status=state)
+        except:
+             return Response({"error": "invalid status"}, status=status.HTTP_400_BAD_REQUEST)
+        state = state.id
+        data = {"status": state}
+        serializer = serializer(data=data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(
+            serializer.data,
+            status=status.HTTP_201_CREATED,
+            headers=headers
+        )
+
     
 
         
