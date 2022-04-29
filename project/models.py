@@ -1,3 +1,4 @@
+
 from django.db import models
 from resource.models import User
 
@@ -14,7 +15,7 @@ class Team(models.Model):
     
     name =              models.CharField(max_length=250)
     team_lead =         models.ForeignKey(User, on_delete=models.CASCADE, related_name='team_lead')
-    team_members =      models.ManyToManyField(User, related_name='team_members')
+    team_members =      models.ManyToManyField(User, related_name='team_members', null=True)
     
     class Meta:
         unique_together = ('name', 'team_lead')
@@ -30,6 +31,7 @@ class Task(models.Model):
     team =              models.ForeignKey(Team, null = True, on_delete=models.SET_NULL)
     status =            models.ForeignKey(State, null=True, on_delete=models.SET_NULL)
     description =       models.TextField()
+    team_members =      models.ManyToManyField(User, null=True)
     started_at =        models.DateTimeField(null=True)
     completed_at =      models.DateTimeField(null=True)
     
