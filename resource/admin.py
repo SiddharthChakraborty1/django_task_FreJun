@@ -1,24 +1,3 @@
-# from django.contrib import admin
-# from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-# from resource.models import Role, User
-
-# # Register your models here.
-
-# class CustomUserAdmin(BaseUserAdmin):
-#     model = User
-    
-#     list_display = ('name', 'email', 'role','is_superuser', 'password','is_active', 'is_staff')
-#     ordering = ('name', 'email', 'role', 'is_superuser',
-#                 'password', 'is_active', 'is_staff')
-#     search_fields=('email',)
-    
-    
-# @admin.register(User)
-# class AdminUser(CustomUserAdmin):
-    
-#     pass
-
-
 from django import forms
 from django.contrib import admin
 from django.contrib.auth.models import Group
