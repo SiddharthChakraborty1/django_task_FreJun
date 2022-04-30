@@ -5,6 +5,8 @@
   <li>  Install the requirements.txt </li>
   <li> run the management commands initiate_roles and initiate_status after making migrations to make sure
     there is valid data for roles and status in the database </li>
+  <li> Make sure to generate jwt access token by sending email and password to the following endpoint <br>
+    localhost:8000/api/token/ </li>
   
  </ol>
  <br>
